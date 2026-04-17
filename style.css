@@ -1,0 +1,6 @@
+body { font-family: Arial; }
+section { display: none; }
+.active { display: block; }
+.high { color: red; }
+.medium { color: orange; }
+.low { color: green; }

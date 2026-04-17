@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Disaster Management System</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root {
+  --bg: #0b1220;
+  --card: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.08);
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI';
+  background: var(--bg);
+  color: var(--text);
+  text-align: center;
+}
+
+/* NAV */
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+nav button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+nav button:hover {
+  background: var(--card);
+}
+
+/* SECTIONS */
+section {
+  display: none;
+  padding: 30px;
+}
+.active { display: block; }
+
+/* CARD */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 20px;
+  width: 360px;
+  margin: auto;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+/* INPUT */
+input, textarea, select {
+  width: 90%;
+  padding: 10px;
+  margin: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+/* BUTTON */
+.btn {
+  width: 95%;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #334155;
+  color: white;
+  cursor: pointer;
+}
+
+.high { color: #ef4444; }
+.medium { color: #f59e0b; }
+.low { color: #22c55e; }
+
+/* MAP */
+#map {
+  height: 420px;
+  width: 85%;
+  margin: auto;
+  border-radius: 15px;
+}
+
+/* GRID */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+<button onclick="showPage('home')">Home</button>
+<button onclick="showPage('login')">Login</button>
+<button onclick="showPage('report')">Report</button>
+<button onclick="showPage('dashboard')">Dashboard</button>
+<button onclick="showPage('admin')">Admin</button>
+<button onclick="showPage('mapPage')">Map</button>
+<button onclick="showPage('analytics')">Analytics</button>
+</nav>
+
+<!-- HOME -->
+<section id="home" class="active">
+<h1>🚨 AI Disaster Management System</h1>
+<p style="color:var(--muted)">Smart detection • Live mapping • AI prioritization</p>
+</section>
+
+<!-- LOGIN -->
+<section id="login">
+<div class="card">
+<h2>Login</h2>
+<input id="username" placeholder="Enter your name">
+<select id="role">
+<option value="user">User</option>
+<option value="admin">Admin</option>
+</select>
+<button class="btn" onclick="login()">Login</button>
+</div>
+</section>
+
+<!-- REPORT -->
+<section id="report">
+<div class="card">
+<h2>Report Disaster</h2>
+<input id="title" placeholder="Fire in building / Flood area / Accident">
+<textarea id="desc" placeholder="Describe emergency situation..."></textarea>
+<input id="location" placeholder="Lat,Lng (e.g. 12.97,77.59)">
+<button class="btn" onclick="submitReport()">Submit</button>
+</div>
+</section>
+
+<!-- DASHBOARD -->
+<section id="dashboard">
+<h2>User Dashboard</h2>
+<div id="userReports" class="grid"></div>
+</section>
+
+<!-- ADMIN -->
+<section id="admin">
+<h2>Admin Panel</h2>
+<div id="allReports" class="grid"></div>
+</section>
+
+<!-- MAP -->
+<section id="mapPage">
+<h2>Disaster Heat Map</h2>
+<div id="map"></div>
+</section>
+
+<!-- ANALYTICS -->
+<section id="analytics">
+<h2>Analytics Dashboard</h2>
+<canvas id="chart"></canvas>
+</section>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+let currentUser=null;
+let map,chart;
+
+/* NAV */
+function showPage(p){
+ document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+ document.getElementById(p).classList.add('active');
+
+ if(p==='dashboard')loadUserReports();
+ if(p==='admin')loadAllReports();
+ if(p==='mapPage')loadMap();
+ if(p==='analytics')loadChart();
+}
+
+/* LOGIN */
+function login(){
+ currentUser={
+  name:document.getElementById('username').value,
+  role:document.getElementById('role').value
+ };
+ alert("Welcome "+currentUser.name);
+}
+
+/* AI PRIORITY */
+function getPriority(desc){
+ desc=desc.toLowerCase();
+ let score=0;
+
+ if(desc.includes("fire")||desc.includes("explosion")||desc.includes("blast"))score+=5;
+ if(desc.includes("injured")||desc.includes("trapped"))score+=4;
+ if(desc.includes("flood")||desc.includes("heavy rain"))score+=3;
+ if(desc.includes("damage"))score+=2;
+
+ if(score>=5)return"high";
+ if(score>=3)return"medium";
+ return"low";
+}
+
+/* SUBMIT */
+function submitReport(){
+ let reports=JSON.parse(localStorage.getItem("reports"))||[];
+
+ let loc=document.getElementById("location").value.split(",");
+ let lat=parseFloat(loc[0])||20;
+ let lng=parseFloat(loc[1])||77;
+
+ let report={
+  user:currentUser?.name,
+  title:document.getElementById("title").value,
+  desc:document.getElementById("desc").value,
+  priority:getPriority(document.getElementById("desc").value),
+  status:"Pending",
+  lat,lng
+ };
+
+ reports.push(report);
+ localStorage.setItem("reports",JSON.stringify(reports));
+
+ if(report.priority==="high") alert("🚨 HIGH PRIORITY ALERT!");
+ else alert("Report Submitted");
+}
+
+/* USER DASHBOARD */
+function loadUserReports(){
+ let reports=JSON.parse(localStorage.getItem("reports"))||[];
+ let div=document.getElementById("userReports");
+ div.innerHTML="";
+
+ reports.forEach(r=>{
+  if(r.user===currentUser?.name){
+   div.innerHTML+=`<div class="card">
+   <b>${r.title}</b><br>
+   <span class="${r.priority}">${r.priority}</span><br>
+   ${r.status}
+   </div>`;
+  }
+ });
+}
+
+/* ADMIN */
+function loadAllReports(){
+ let reports=JSON.parse(localStorage.getItem("reports"))||[];
+ let div=document.getElementById("allReports");
+ div.innerHTML="";
+
+ reports.forEach((r,i)=>{
+  div.innerHTML+=`<div class="card">
+  <b>${r.title}</b><br>
+  Priority: ${r.priority}<br>
+  Status: ${r.status}<br>
+  <button class="btn" onclick="resolve(${i})">Resolve</button>
+  </div>`;
+ });
+}
+
+function resolve(i){
+ let reports=JSON.parse(localStorage.getItem("reports"))||[];
+ reports[i].status="Resolved";
+ localStorage.setItem("reports",JSON.stringify(reports));
+ loadAllReports();
+}
+
+/* MAP (AREA ZONES) */
+function loadMap(){
+ if(map)return;
+
+ map=L.map('map').setView([20,77],5);
+
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+ let reports=JSON.parse(localStorage.getItem("reports"))||[];
+
+ reports.forEach(r=>{
+  let color=r.priority==="high"?"red":r.priority==="medium"?"orange":"green";
+
+  L.circle([r.lat,r.lng],{
+    color:color,
+    fillColor:color,
+    fillOpacity:0.25,
+    radius:20000
+  }).addTo(map).bindPopup(`<b>${r.title}</b><br>${r.priority}`);
+ });
+}
+
+/* ANALYTICS */
+function loadChart(){
+ let reports=JSON.parse(localStorage.getItem("reports"))||[];
+ let h=0,m=0,l=0;
+
+ reports.forEach(r=>{
+  if(r.priority==="high")h++;
+  else if(r.priority==="medium")m++;
+  else l++;
+ });
+
+ if(chart)chart.destroy();
+
+ chart=new Chart(document.getElementById('chart'),{
+  type:'bar',
+  data:{
+   labels:['High','Medium','Low'],
+   datasets:[{
+    data:[h,m,l],
+    backgroundColor:['#ef4444','#f59e0b','#22c55e']
+   }]
+  }
+ });
+}
+</script>
+
+</body>
+</html>
